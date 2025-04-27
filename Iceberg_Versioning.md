@@ -49,3 +49,103 @@ Assuming you're using **PySpark** with Iceberg extensions enabled:
 ```python
 # PySpark Example
 spark.sql("DESCRIBE HISTORY mydb.mytable").show(truncate=False)
+```
+
+---
+
+### 2. Time Travel to a Past Snapshot
+
+Query data from an earlier point in time using:
+
+```python
+# Based on Snapshot Version
+snapshot_id = 1234567890123
+spark.read.format("iceberg").option("snapshot-id", snapshot_id).load("mydb.mytable").show()
+
+# Or based on Timestamp
+timestamp = "2024-04-20T12:00:00"
+spark.read.format("iceberg").option("as-of-timestamp", timestamp).load("mydb.mytable").show()
+```
+
+---
+
+### 3. Roll Back to a Previous Snapshot
+
+You can **reset** your table's current state to an older snapshot:
+
+```python
+rollback_snapshot_id = 1234567890123
+spark.sql(f"CALL system.rollback_to_snapshot('mydb.mytable', {rollback_snapshot_id})")
+```
+
+This doesn't delete data but updates the current metadata pointer to the selected snapshot. (Just like a `git reset`!)
+
+---
+
+### 4. Expire Old Snapshots (Cleanup)
+
+Important: **Snapshots consume storage** (data + metadata files).
+
+To clean up:
+
+```python
+# Expire snapshots older than a specific timestamp
+expire_before = "2024-03-01 00:00:00"
+spark.sql(f"CALL system.expire_snapshots('mydb.mytable', older_than => TIMESTAMP '{expire_before}')")
+```
+
+**Best practice:** Schedule automatic snapshot expiration for housekeeping.
+
+---
+
+## 🚷 Best Practices for Snapshot Versioning
+
+| Best Practice | Why It Matters |
+|:--------------|:---------------|
+| **Use explicit timestamps for critical queries** | Avoid surprises from schema or data changes |
+| **Limit number of retained snapshots** | Prevent storage bloat |
+| **Automate expiration** | Keep metadata clean and lightweight |
+| **Use branching/tags for experiments** | Safely isolate dev/test pipelines |
+| **Monitor snapshot size and growth** | Detect anomalies early |
+
+---
+
+## 🛰️ Real-world Example: Protecting Critical Reports
+
+A FinTech company built monthly financial reports on an Iceberg table.
+- Each month, they "tagged" a snapshot after closing books.
+- Analysts queried the **tag** for a stable version.
+- Even if source data changed later, their reports stayed accurate!
+
+**Iceberg Command to create a Tag (using PySpark):**
+
+```python
+snapshot_id_for_tag = 1234567890123
+spark.sql(f"CALL create_tag('mydb.mytable', 'month_end_closure', snapshot_id => {snapshot_id_for_tag})")
+```
+
+---
+
+## 🔗 References and Further Reading
+
+- [Apache Iceberg Official Documentation](https://iceberg.apache.org/docs/latest/)
+- [Managing Snapshots - Iceberg Docs](https://iceberg.apache.org/docs/latest/snapshots/)
+- [PyIceberg GitHub Repository](https://github.com/apache/iceberg-python)
+- [Branching and Tagging in Iceberg](https://iceberg.apache.org/docs/latest/branch-tag/)
+
+---
+
+## 🎉 Conclusion: Empower Your Data with Versioning
+
+Snapshot Versioning in Apache Iceberg isn't just a nice-to-have — it's a **must-have** for modern data platforms.
+
+It provides:
+- **Flexibility** (time travel, rollback)
+- **Safety** (experimentation without data loss)
+- **Efficiency** (minimal write amplification)
+
+Master it — and you truly master the art of **data agility**!
+
+---
+
+#ReadyToTimeTravel? 🌐
